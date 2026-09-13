@@ -145,7 +145,7 @@ function row(tid,l,i,slot){
  return `<div class="pr ${l.status}${l.edited?' edited':''}" data-row="${tid}|${i}">
 <span class="sl">${esc(SLOTNAME[slot]||slot)}</span>
 ${p?`<img class="hs${p.pos==='DEF'?' def':''}" src="${shot(p)}" alt="" loading="lazy">`:'<span class="hs none"></span>'}
-<span class="who"><span class="nm">${p?esc(p.name):'—'}</span>
+<span class="who" data-tap="${tid}|${i}" role="button" tabindex="0" aria-label="Swap ${esc(p?p.name:'empty slot')}"><span class="nm">${p?esc(p.name):'—'}</span>
 <span class="meta">${p?`<b>${esc(p.pos)}</b> ${esc(p.team||'')}`:''} ${chip(l)}</span></span>
 <span class="act" title="Scored so far">${l.status==='pre'||l.status==='bye'?'<i>–</i>':fmt(l.actual)}</span>
 ${num}
@@ -238,8 +238,10 @@ function wire(root){
   inp.onchange=commit;
   inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();inp.blur()}};
   inp.onfocus=()=>inp.select()});
- root.querySelectorAll('[data-swap]').forEach(b=>b.onclick=()=>{
-  const [tid,i]=b.dataset.swap.split('|');openSwap(tid,+i)});
+ root.querySelectorAll('[data-swap],[data-tap]').forEach(b=>{
+  const open=()=>{const [tid,i]=(b.dataset.swap||b.dataset.tap).split('|');openSwap(tid,+i)};
+  b.onclick=open;
+  if(b.dataset.tap)b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}}});
  root.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>{
   const [tid,pid]=b.dataset.start.split('|');startFromBench(tid,pid)});
  const rs=$('#reset');if(rs)rs.onclick=()=>{S={key:S.key,proj:{},lineup:{}};saveScenario();render()}}

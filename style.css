@@ -196,18 +196,27 @@ img{display:block}
 
 /* ---- the wide screen -------------------------------------------------------- */
 @media(min-width:900px){
- #root{padding:0 40px 60px}
- .mu{grid-template-columns:minmax(0,1fr) 300px minmax(0,1fr);align-items:start;gap:28px}
+ #root{padding:0 40px 60px;max-width:1280px}
+ .mu{grid-template-columns:minmax(0,1fr) 280px minmax(0,1fr);align-items:start;gap:26px}
  .vd{position:sticky;top:76px;order:0}
  .side:first-of-type{order:-1}
  .sheet{align-items:center;justify-items:center}
  .shx{width:560px;max-width:calc(100% - 40px);border-radius:14px;max-height:80vh}
  .ms{grid-auto-columns:minmax(0,1fr);overflow:visible}
 }
+/* On a phone the row has 335px to hold six things. The swap button is the one
+   that can go: the name is the swap target instead, which is where a thumb
+   lands anyway, and the 32px it gives back is the difference between
+   "Christian Mc…" and the man's name. */
 @media(max-width:480px){
- .pr{grid-template-columns:38px 32px minmax(0,1fr) 44px 58px 26px;gap:6px;padding:0 4px 0 8px}
+ .pr{grid-template-columns:30px 32px minmax(0,1fr) 40px 56px;gap:6px;padding:0 8px}
+ .pr:not(.b):not(.pick) .sw{display:none}
+ .pr.b{grid-template-columns:30px 32px minmax(0,1fr) 40px 56px 46px}
+ .pr.pick{grid-template-columns:30px 32px minmax(0,1fr) 40px 56px}
+ .who[data-tap]{cursor:pointer}
  .sl{font-size:11px}
  .hs{width:32px;height:32px}
  .nm{font-size:14px}
+ .meta{font-size:11px;gap:5px}
  .tnm{font-size:17px}
 }
