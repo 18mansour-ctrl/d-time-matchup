@@ -83,7 +83,10 @@ function shape({season,week,league,users,rosters,matchups,proj,sched}){
  const pairs={};
  for(const t of Object.values(teams)){if(t.matchup==null)continue;(pairs[t.matchup]=pairs[t.matchup]||[]).push(t.id)}
  const me=Object.values(teams).find(t=>t.handle.toLowerCase()===ME.toLowerCase());
- return {key:`${LEAGUE}.${season}.${week}`,season,week,league,slots:league.roster_positions,
+ /* league and users ride along, because a refresh reuses them rather than
+    asking again — the two things about the league that do not change during a
+    game */
+ return {key:`${LEAGUE}.${season}.${week}`,season,week,league,users,slots:league.roster_positions,
   players,teams,pairs,me:me?me.id:null}}
 
 /* ---- the scenario ----------------------------------------------------- */
