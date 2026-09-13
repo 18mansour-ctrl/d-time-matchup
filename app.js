@@ -18,6 +18,13 @@ const LEAGUE='1392057555869536256';
 const ME='nickmansourr';
 const API='https://api.sleeper.app';
 const CDN='https://sleepercdn.com';
+/* Sleeper says whether a game is on; it does not say where in the game it is.
+   ESPN's scoreboard does — period and clock — and that is the one thing a live
+   projection needs. Sleeper stays the truth for who has scored what. */
+const ESPN='https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+const ESPN2SL={WSH:'WAS'};
+/* how often the page re-reads the world by itself while a game is on */
+const TICK=60*1000;
 const POS=['QB','RB','WR','TE','K','DEF'];
 /* what may stand in each slot; anything not listed is its own name */
 const FITS={FLEX:['RB','WR','TE'],SUPER_FLEX:['QB','RB','WR','TE'],
@@ -42,20 +49,35 @@ const get=async u=>{const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw new
 async function load(first){
  const st=await get(`${API}/v1/state/nfl`);
  const season=st.season,week=st.display_week||st.week;
- const [league,users,rosters,matchups,proj,sched]=await Promise.all([
+ const [league,users,rosters,matchups,proj,sched,board]=await Promise.all([
   first?get(`${API}/v1/league/${LEAGUE}`):W.league,
   first?get(`${API}/v1/league/${LEAGUE}/users`):W.users,
   get(`${API}/v1/league/${LEAGUE}/rosters`),
   get(`${API}/v1/league/${LEAGUE}/matchups/${week}`),
   get(`${API}/projections/nfl/${season}/${week}?season_type=regular&`+POS.map(p=>'position[]='+p).join('&')),
-  get(`${API}/schedule/nfl/regular/${season}`)]);
- W=shape({season,week,league,users,rosters,matchups,proj,sched});
+  get(`${API}/schedule/nfl/regular/${season}`),
+  /* the clock is a nicety; the page must not die without it */
+  get(ESPN).catch(()=>null)]);
+ W=shape({season,week,league,users,rosters,matchups,proj,sched,board});
  UPDATED=new Date();
  if(!S||S.key!==W.key)S=loadScenario(W.key)}
 
+/* The share of a game still to be played, from ESPN's period and clock. Four
+   fifteen-minute periods; the clock counts down within one. Overtime is
+   nearly nothing left. */
+function remaining(ev){
+ const c=ev.competitions[0],st=c.status,t=st.type||{};
+ if(t.state==='pre')return 1;
+ if(t.completed||t.state==='post')return 0;
+ const per=st.period||1;
+ if(per>4)return .04;
+ const m=/^(\d+):(\d+)/.exec(st.displayClock||'');
+ const left=m?(+m[1])+(+m[2])/60:15;
+ return Math.max(0,Math.min(1,((4-per)*15+left)/60))}
+
 /* One pass from Sleeper's shapes to ours. Nothing downstream reads the raw
    payloads again. */
-function shape({season,week,league,users,rosters,matchups,proj,sched}){
+function shape({season,week,league,users,rosters,matchups,proj,sched,board}){
  const sc=league.scoring_settings;
  const score=stats=>{let t=0;for(const k in sc){const v=stats[k];if(v)t+=v*sc[k]}return Math.round(t*100)/100};
  /* this week's game for every team */
@@ -63,6 +85,13 @@ function shape({season,week,league,users,rosters,matchups,proj,sched}){
  for(const g of sched){if(g.week!==week)continue;
   game[g.home]={status:g.status,opp:g.away,home:true,date:g.date};
   game[g.away]={status:g.status,opp:g.home,home:false,date:g.date}}
+ /* and where each one stands, when ESPN answered */
+ if(board&&board.events)for(const ev of board.events){
+  const f=remaining(ev),st=ev.competitions[0].status,t=st.type||{};
+  const clock=t.state==='in'?(st.period>4?'OT':`Q${st.period} ${st.displayClock||''}`.trim()):'';
+  for(const c of ev.competitions[0].competitors){
+   const ab=c.team.abbreviation,k=ESPN2SL[ab]||ab;
+   if(game[k])Object.assign(game[k],{f,clock,kick:ev.date})}}
  const players={};
  for(const p of proj){const pl=p.player||{};const team=pl.team||p.team||null;
   players[p.player_id]={id:p.player_id,
@@ -110,15 +139,40 @@ function line(tid,pid){
     player who is Out or on IR is not going to score, so his number is whatever
     he has; you can still type over it if you know better. */
  const out=p.injury==='Out'||p.injury==='IR'||p.injury==='PUP'||p.injury==='Sus';
- const base=status==='bye'?0:out?actual:status==='live'?Math.max(p.proj,actual):p.proj;
+ /* A live player's number is what he has plus the rest of his game: the full
+    projection scaled by the share of the clock still to run. Sleeper's feed
+    is a whole-game figure republished in batches — Smith carried 15.7 for the
+    game with 8.3 on the board and a quarter to play — so the rest-of-game
+    part is derived here, from the clock, on every read. */
+ const f=status==='live'?(g.f!=null?g.f:.5):1;
+ const base=status==='bye'?0:out?actual:status==='live'?Math.round((actual+p.proj*f)*100)/100:p.proj;
  const over=S.proj[pid];
  const final=fixed?actual:(over!=null?+over:base);
- return {pid,p,actual,proj:p.proj,base,final,status,fixed,edited:!fixed&&over!=null}}
+ /* what is still to come, and how sure anyone can be of it. A projection is
+    the middle of a wide spread — a receiver called for 12 scores 2 or 30 — and
+    the spread narrows as his game runs down. */
+ const left=fixed?0:Math.max(0,final-actual);
+ const sd=fixed?0:(0.6*Math.max(final-actual,0)+1)*Math.sqrt(f);
+ return {pid,p,actual,proj:p.proj,base,final,left,sd,f,status,fixed,edited:!fixed&&over!=null}}
 const starters=tid=>S.lineup[tid]||W.teams[tid].starters;
 const lineup=tid=>starters(tid).map(pid=>line(tid,pid));
 const totals=tid=>{const L=lineup(tid);
  return {actual:L.reduce((a,l)=>a+l.actual,0),final:L.reduce((a,l)=>a+l.final,0),
+  var:L.reduce((a,l)=>a+l.sd*l.sd,0),
   left:L.filter(l=>!l.fixed),done:L.filter(l=>l.fixed).length,live:L.filter(l=>l.status==='live').length}};
+/* The chance a beats b, treating each side's remaining points as one normal
+   spread around its projection. Closed form, so it is exact for the model and
+   instant on every keystroke; the model itself is a fair estimate and says so. */
+const erf=x=>{const t=1/(1+.3275911*Math.abs(x));
+ const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x);
+ return x<0?-y:y};
+const Phi=z=>.5*(1+erf(z/Math.SQRT2));
+function winProb(a,b){
+ const A=totals(a),B=totals(b);
+ const d=A.final-B.final,sd=Math.sqrt(A.var+B.var);
+ if(sd<1e-9)return d>0?1:d<0?0:.5;
+ return Phi(d/sd)}
+const pct=p=>Math.round(p*100);
 const fits=(slot,pos)=>(FITS[slot]||[slot]).includes(pos);
 const bench=tid=>{const t=W.teams[tid],on=new Set(starters(tid));
  return t.players.filter(pid=>!on.has(pid)).map(pid=>line(tid,pid))
@@ -136,7 +190,9 @@ function chip(l){
  const inj=l.p.injury?`<span class="inj">${esc(l.p.injury==='Questionable'?'Q':l.p.injury==='Doubtful'?'D':l.p.injury)}</span>`:'';
  const g=l.p.game;
  const vs=g?`${g.home?'vs':'@'} ${g.opp}`:'';
- const s={final:'Final',live:'Live',pre:day(g&&g.date),bye:'Bye',empty:''}[l.status];
+ const kick=g&&g.kick?new Date(g.kick):null;
+ const when=kick?`${day(g.date)} ${kick.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}).replace(/\s?[AP]M$/i,m=>m.trim().toLowerCase())}`:day(g&&g.date);
+ const s={final:'Final',live:g&&g.clock?g.clock:'Live',pre:when,bye:'Bye',empty:''}[l.status];
  return `<span class="st ${l.status}">${esc(s)}</span><span class="vs">${esc(vs)}</span>${inj}`}
 
 function row(tid,l,i,slot){
@@ -184,11 +240,13 @@ function verdict(a,b){
  const me=a===W.me,mine=me?'You':ta.name,are=me?'’re':' is';
  const d=A.final-B.final;
  const lead=A.actual-B.actual;
- let head,sub;
+ const P=winProb(a,b);
+ let head,sub,big='';
  if(A.left.length===0&&B.left.length===0){
   const w=lead>0?ta:lead<0?tb:null;
   head=w?`${esc(w.id===W.me?'You':w.name)} won by ${fmt(Math.abs(lead))}`:'Tied';sub='Final.'}
  else{
+  big=`<span class="vp"><b>${pct(P)}%</b><i>to win</i></span>`;
   head=d>0?`${esc(mine)}${are} projected to win by ${fmt(d)}`:d<0?`${esc(mine)}${are} projected to lose by ${fmt(-d)}`:'Dead even on projection';
   const need=B.final-A.actual;
   const names=A.left.map(l=>l.p?l.p.short:'empty').join(', ');
@@ -198,7 +256,7 @@ function verdict(a,b){
     ?`${esc(mine)} need${me?'':'s'} <b>${fmt(need)}</b> more from ${esc(names)} — set to ${fmt(have)}.`
     :`${esc(mine)} ${me?'are':'is'} already past ${esc(tb.name)}’s projected ${fmt(B.final)}, with ${esc(names)} still to play.`
    :`${esc(mine)} ${me?'are':'is'} done at ${fmt(A.actual)}; ${esc(tb.name)} needs ${fmt(Math.max(0,A.actual-B.actual))} more from ${B.left.length} player${B.left.length===1?'':'s'}.`}
- return `<div class="vd ${d>0?'up':d<0?'down':''}"><p class="vh">${head}</p><p class="vs2">${sub}</p>
+ return `<div class="vd ${d>0?'up':d<0?'down':''}">${big}<p class="vh">${head}</p><p class="vs2">${sub}</p>
 <p class="vn"><span>${fmt(A.actual)}</span><i>so far</i><span>${fmt(B.actual)}</span></p></div>`}
 
 function strip(){
@@ -207,9 +265,10 @@ function strip(){
   const A=totals(a),B=totals(b),on=VIEW.m===id;
   const mine=a===W.me||b===W.me;
   const live=A.live+B.live>0,done=A.left.length+B.left.length===0;
+  const P=winProb(a,b);
   return `<button class="mc${on?' on':''}${mine?' mine':''}" data-m="${id}" aria-current="${on}">
-<span class="mr"><span>${esc(W.teams[a].name)}</span><b>${fmt(A.final)}</b></span>
-<span class="mr"><span>${esc(W.teams[b].name)}</span><b>${fmt(B.final)}</b></span>
+<span class="mr"><span>${esc(W.teams[a].name)}</span>${done?'':`<em>${pct(P)}%</em>`}<b>${fmt(A.final)}</b></span>
+<span class="mr"><span>${esc(W.teams[b].name)}</span>${done?'':`<em>${pct(1-P)}%</em>`}<b>${fmt(B.final)}</b></span>
 <span class="mst ${done?'final':live?'live':'pre'}">${done?'Final':live?'Live':'Projected'}</span></button>`}).join('')}</nav>`}
 
 function render(){
@@ -225,7 +284,7 @@ ${verdict(a,b)}
 ${side(b,b===W.me,a)}
 </div>
 <footer class="ft">
-<span class="upd">Updated ${UPDATED.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span>
+<span class="upd">Updated ${UPDATED.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}${anyLive()?' · refreshing every minute while games are on':''}</span>
 ${touched()?'<button class="rs" id="reset" type="button">Reset what-ifs</button>':'<span class="hint">Edit any projection, or swap in a bench player, to ask what it would take.</span>'}
 </footer>`;
  wire(root)}
@@ -308,17 +367,34 @@ ${l.p?`<img class="hs${l.p.pos==='DEF'?' def':''}" src="${shot(l.p)}" alt="">`:'
  document.body.appendChild(box)}
 
 /* ---- refresh ------------------------------------------------------------ */
+let BUSY=false;
 async function refresh(){
+ if(BUSY)return;BUSY=true;
  const b=$('#refresh');b.classList.add('busy');b.disabled=true;
  try{await load(false);render()}
  catch(e){console.error(e);const f=$('.upd');if(f)f.textContent='Refresh failed — try again'}
- finally{b.classList.remove('busy');b.disabled=false}}
+ finally{b.classList.remove('busy');b.disabled=false;BUSY=false;schedule()}}
+
+/* Real time, within reason: while any game on the page is being played the
+   world is re-read once a minute, which is about as often as Sleeper moves
+   the scores and far more often than it republishes the projections. When
+   nothing is on, nothing is asked. A hidden tab waits until it is looked at. */
+const anyLive=()=>Object.values(W.teams).some(t=>starters(t.id).some(pid=>{const p=W.players[pid];return p&&p.game&&p.game.status==='in_game'}));
+let TIMER=null;
+function schedule(){
+ clearTimeout(TIMER);TIMER=null;
+ if(!W||!anyLive()||document.hidden)return;
+ TIMER=setTimeout(refresh,TICK)}
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){clearTimeout(TIMER);TIMER=null}
+ else if(W&&UPDATED&&Date.now()-UPDATED.getTime()>TICK)refresh();
+ else schedule()});
 
 /* ---- boot --------------------------------------------------------------- */
 async function boot(){
  $('#refresh').onclick=refresh;
  const h=location.hash.match(/^#m(\d+)$/);if(h)VIEW.m=h[1];
- try{await load(true);render()}
+ try{await load(true);render();schedule()}
  catch(e){console.error(e);$('#root').innerHTML=`<div class="boot"><p class="bootl">Couldn’t reach Sleeper.</p><p class="boots">${esc(e.message)}</p></div>`}}
 boot();
 })();
