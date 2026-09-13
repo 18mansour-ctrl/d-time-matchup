@@ -1,0 +1,213 @@
+@font-face{font-family:'Sohne';src:url('fonts/Sohne-Buch.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Sohne';src:url('fonts/Sohne-Kraftig.woff2') format('woff2');font-weight:500;font-display:swap}
+@font-face{font-family:'Sohne';src:url('fonts/Sohne-Halbfett.woff2') format('woff2');font-weight:600;font-display:swap}
+@font-face{font-family:'Sohne';src:url('fonts/Sohne-Dreiviertelfett.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Sohne Schmal';src:url('fonts/SohneSchmal-Dreiviertelfett.woff2') format('woff2');font-weight:700;font-display:swap}
+
+/* The house palette, carried over from picks whole. Paper rather than white,
+   ink rather than black, and one highlight that means "this is yours". Three
+   more here for the three states a player can be in this week. */
+:root{
+ --paper:#FAFAF6;--card:#FFFDF7;--ink:#191917;--body:#26251F;
+ --mut:#605F58;--mut2:#4C4A43;--fnt:#9C9B92;
+ --hr:rgba(25,25,23,.09);--hr2:rgba(25,25,23,.2);
+ --hl:#FFE86B;--hls:#FFD84D;--acc:#2451B3;
+ --live:#1D8F4E;--livebg:rgba(29,143,78,.11);
+ --up:#1D8F4E;--down:#C2352B;
+ --sans:'Sohne',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+ --cond:'Sohne Schmal','Sohne',sans-serif;
+ --cardsh:0 1px 1px rgba(25,25,23,.04),0 6px 16px -10px rgba(25,25,23,.3);
+ --pad:20px;
+ --e-out:cubic-bezier(.23,1,.32,1);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--paper)}
+body{font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;
+ font-size:15px;line-height:1.35}
+button,input{font:inherit;color:inherit;border:0;background:none;margin:0;padding:0}
+button{cursor:pointer}
+h1,h2,h3,h4,p{margin:0}
+img{display:block}
+
+/* ---- masthead ------------------------------------------------------------- */
+.mast{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:11px;
+ padding:14px var(--pad);background:rgba(250,250,246,.9);
+ -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+ border-bottom:1px solid var(--hr)}
+.wm{width:15px;height:15px;border-radius:4px;background:var(--ink);flex:none;position:relative}
+.wm::after{content:'';position:absolute;left:4px;top:3px;width:5px;height:9px;
+ border:2px solid var(--hl);border-left:0;border-radius:0 5px 5px 0}
+.mt{font-size:17px;font-weight:700;letter-spacing:-.03em}
+.mw{font-size:13px;color:var(--fnt);margin-left:2px}
+.rf{margin-left:auto;display:inline-flex;align-items:center;gap:7px;
+ padding:7px 12px 7px 10px;border-radius:8px;background:var(--ink);color:var(--paper);
+ font-size:13px;font-weight:600;letter-spacing:-.012em;
+ transition:transform .12s var(--e-out),opacity .15s}
+.rf:active{transform:scale(.98)}
+.rf:disabled{opacity:.55;cursor:default}
+.rfi{width:13px;height:13px;border-radius:50%;border:2px solid rgba(250,250,246,.45);
+ border-top-color:var(--paper);flex:none}
+.rf.busy .rfi{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---- the sheet ------------------------------------------------------------ */
+#root{padding:0 var(--pad) 48px;max-width:1120px;margin:0 auto}
+.boot{padding:60px 0;text-align:center}
+.bootl{font-size:17px;font-weight:600;color:var(--mut)}
+.boots{font-size:13px;color:var(--fnt);margin-top:8px}
+
+/* ---- the strip: every matchup this week ----------------------------------- */
+.ms{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(150px,1fr);gap:8px;
+ padding:14px 0 4px;overflow-x:auto;scrollbar-width:none}
+.ms::-webkit-scrollbar{display:none}
+.mc{display:grid;gap:3px;text-align:left;padding:10px 12px 9px;border-radius:9px;
+ background:var(--card);box-shadow:var(--cardsh);border:1.5px solid transparent;
+ transition:border-color .14s,background .14s}
+.mc.on{border-color:var(--ink)}
+.mc.mine:not(.on){border-color:rgba(25,25,23,.12)}
+.mc:hover:not(.on){background:#fff}
+.mr{display:flex;justify-content:space-between;gap:8px;font-size:13px;
+ font-weight:500;color:var(--mut2)}
+.mr span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mr b{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.mst{font-family:var(--cond);font-size:10.5px;font-weight:700;letter-spacing:.07em;
+ text-transform:uppercase;color:var(--fnt);margin-top:2px}
+.mst.live{color:var(--live)}
+.mst.final{color:var(--mut)}
+
+/* ---- the matchup ---------------------------------------------------------- */
+.mu{display:grid;gap:22px;margin-top:18px}
+.side{min-width:0}
+.sh{display:flex;align-items:center;gap:11px;padding:2px 2px 12px}
+.av{width:38px;height:38px;border-radius:50%;flex:none;object-fit:cover;background:rgba(25,25,23,.06)}
+.avt{display:grid;place-items:center;font-weight:700;color:var(--mut)}
+.tn{display:grid;min-width:0;flex:1}
+.tnm{font-size:19px;font-weight:700;letter-spacing:-.028em;line-height:1.1;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tnh{font-size:12.5px;color:var(--fnt);margin-top:2px}
+.side.me .tnh{color:var(--mut)}
+.tot{display:grid;text-align:right;flex:none}
+.tf{font-size:26px;font-weight:700;letter-spacing:-.035em;line-height:1;
+ font-variant-numeric:tabular-nums}
+.ta{font-size:12px;color:var(--fnt);margin-top:3px;white-space:nowrap}
+
+/* ---- a player row ---------------------------------------------------------- */
+/* slot · headshot · who · scored · final · swap. The final is the one editable
+   thing on the row for anyone still to play, and it is set in the same face
+   and weight as the number beside it so an edit reads as a number, not a form. */
+.rows{display:grid;gap:5px}
+.pr{display:grid;grid-template-columns:44px 36px minmax(0,1fr) 52px 64px 30px;
+ align-items:center;gap:8px;min-height:52px;padding:0 6px 0 10px;
+ border-radius:9px;background:var(--card);box-shadow:var(--cardsh);
+ position:relative;transition:background .14s}
+.pr.final{background:rgba(255,253,247,.6);box-shadow:0 0 0 1px var(--hr) inset}
+.pr.bye{opacity:.62}
+.pr.live{box-shadow:var(--cardsh),0 0 0 1.5px var(--livebg) inset}
+.pr.edited{background:#FFF9D9}
+.sl{font-family:var(--cond);font-size:12px;font-weight:700;letter-spacing:.06em;
+ text-transform:uppercase;color:var(--fnt);text-align:left}
+.hs{width:36px;height:36px;border-radius:50%;object-fit:cover;object-position:50% 20%;
+ background:rgba(25,25,23,.06)}
+.hs.def{border-radius:8px;object-fit:contain;object-position:50% 50%;padding:4px}
+.hs.none{display:block}
+.who{display:grid;min-width:0;gap:1px}
+.nm{font-size:15px;font-weight:600;letter-spacing:-.018em;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--mut);
+ white-space:nowrap;overflow:hidden}
+.meta b{font-weight:600;color:var(--mut2)}
+.st{font-family:var(--cond);font-size:10.5px;font-weight:700;letter-spacing:.07em;
+ text-transform:uppercase;color:var(--fnt);padding:2px 5px;border-radius:3px;
+ background:rgba(25,25,23,.06)}
+.st.live{color:var(--live);background:var(--livebg)}
+.st.final{color:var(--mut)}
+.st.pre{color:var(--mut2);background:rgba(25,25,23,.05)}
+.st.bye,.st.empty{color:var(--fnt)}
+.vs{color:var(--fnt)}
+.inj{font-family:var(--cond);font-size:10.5px;font-weight:700;letter-spacing:.05em;
+ color:var(--down);text-transform:uppercase}
+.act{font-size:14px;color:var(--mut);text-align:right;font-variant-numeric:tabular-nums}
+.act i{font-style:normal;color:var(--fnt)}
+.fin{font-size:16px;font-weight:700;letter-spacing:-.02em;text-align:right;
+ font-variant-numeric:tabular-nums}
+.pr.final .fin{color:var(--ink)}
+.fin.in{width:100%;height:36px;padding:0 8px;border-radius:7px;
+ background:rgba(25,25,23,.045);box-shadow:0 0 0 1px transparent inset;
+ transition:background .14s,box-shadow .14s;-moz-appearance:textfield}
+.fin.in::-webkit-inner-spin-button,.fin.in::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.fin.in:hover{background:rgba(25,25,23,.07)}
+.fin.in:focus{outline:0;background:#fff;box-shadow:0 0 0 2px var(--hls) inset}
+.fin.in.ed{background:var(--hl);color:var(--ink)}
+.sw{width:30px;height:36px;border-radius:7px;color:var(--fnt);font-size:15px;
+ display:grid;place-items:center;transition:background .14s,color .14s}
+.sw:hover{background:rgba(25,25,23,.07);color:var(--ink)}
+.pr.b .sw{font-size:12px;font-weight:600;width:auto;padding:0 8px;color:var(--mut)}
+
+/* ---- the bench ------------------------------------------------------------- */
+.bn{margin-top:12px}
+.bn summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:7px;
+ font-size:13px;font-weight:600;color:var(--mut);padding:6px 2px}
+.bn summary::-webkit-details-marker{display:none}
+.bn summary::before{content:'';width:0;height:0;border:4px solid transparent;
+ border-left:5px solid var(--fnt);transition:transform .15s}
+.bn[open] summary::before{transform:rotate(90deg)}
+.bnc{font-size:11px;color:var(--fnt);font-weight:500}
+.bnr{margin-top:6px}
+.pr.b{min-height:46px;background:transparent;box-shadow:0 0 0 1px var(--hr) inset}
+.pr.b .hs{width:30px;height:30px}
+
+/* ---- the verdict ----------------------------------------------------------- */
+.vd{padding:16px 18px;border-radius:10px;background:var(--ink);color:var(--paper);
+ display:grid;gap:6px}
+.vd.up{background:#164A2C}
+.vd.down{background:#5A1C16}
+.vh{font-size:19px;font-weight:700;letter-spacing:-.028em;line-height:1.15}
+.vs2{font-size:13.5px;line-height:1.4;color:rgba(250,250,246,.78)}
+.vs2 b{color:var(--hl);font-weight:700}
+.vn{display:flex;align-items:baseline;gap:10px;margin-top:4px;
+ font-size:13px;color:rgba(250,250,246,.6);font-variant-numeric:tabular-nums}
+.vn span{font-size:15px;font-weight:700;color:var(--paper)}
+.vn i{font-style:normal;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+
+/* ---- the swap sheet -------------------------------------------------------- */
+.sheet{position:fixed;inset:0;z-index:40;background:rgba(25,25,23,.42);
+ display:grid;align-items:end;animation:fade .16s var(--e-out)}
+@keyframes fade{from{opacity:0}}
+.shx{background:var(--paper);border-radius:14px 14px 0 0;padding:12px var(--pad) 28px;
+ max-height:82vh;overflow:auto;animation:rise .22s var(--e-out)}
+@keyframes rise{from{transform:translateY(24px)}}
+.shh{display:flex;align-items:center;gap:8px;padding:6px 0 12px;font-size:15px;color:var(--mut)}
+.shh b{color:var(--ink);font-weight:700}
+.x{margin-left:auto;width:32px;height:32px;border-radius:50%;background:rgba(25,25,23,.06);
+ color:var(--mut);display:grid;place-items:center;font-size:13px}
+.pr.pick{grid-template-columns:44px 36px minmax(0,1fr) 52px 64px;text-align:left;width:100%}
+.pr.pick:hover{background:#fff}
+.pr.pick.empty{box-shadow:0 0 0 1px var(--hr) inset;background:transparent;color:var(--mut)}
+.none{padding:18px 4px;color:var(--mut);font-size:14px}
+
+/* ---- the foot -------------------------------------------------------------- */
+.ft{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:26px;
+ padding-top:14px;border-top:1px solid var(--hr);font-size:12.5px;color:var(--fnt)}
+.hint{color:var(--fnt)}
+.rs{margin-left:auto;padding:7px 12px;border-radius:7px;font-size:13px;font-weight:600;
+ color:var(--mut);background:rgba(25,25,23,.06)}
+.rs:hover{color:var(--ink);background:rgba(25,25,23,.1)}
+
+/* ---- the wide screen -------------------------------------------------------- */
+@media(min-width:900px){
+ #root{padding:0 40px 60px}
+ .mu{grid-template-columns:minmax(0,1fr) 300px minmax(0,1fr);align-items:start;gap:28px}
+ .vd{position:sticky;top:76px;order:0}
+ .side:first-of-type{order:-1}
+ .sheet{align-items:center;justify-items:center}
+ .shx{width:560px;max-width:calc(100% - 40px);border-radius:14px;max-height:80vh}
+ .ms{grid-auto-columns:minmax(0,1fr);overflow:visible}
+}
+@media(max-width:480px){
+ .pr{grid-template-columns:38px 32px minmax(0,1fr) 44px 58px 26px;gap:6px;padding:0 4px 0 8px}
+ .sl{font-size:11px}
+ .hs{width:32px;height:32px}
+ .nm{font-size:14px}
+ .tnm{font-size:17px}
+}
