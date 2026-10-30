@@ -58,7 +58,7 @@ img{display:block}
 .boots{font-size:13px;color:var(--fnt);margin-top:8px}
 
 /* ---- the strip: every matchup this week ----------------------------------- */
-.ms{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(150px,1fr);gap:8px;
+.ms{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(196px,1fr);gap:8px;
  padding:14px 0 4px;overflow-x:auto;scrollbar-width:none}
 .ms::-webkit-scrollbar{display:none}
 .mc{display:grid;gap:3px;text-align:left;padding:10px 12px 9px;border-radius:9px;
@@ -194,6 +194,7 @@ img{display:block}
 .pr.pick{grid-template-columns:44px 36px minmax(0,1fr) 52px 64px;text-align:left;width:100%}
 .pr.pick:hover{background:#fff}
 .pr.pick.empty{box-shadow:0 0 0 1px var(--hr) inset;background:transparent;color:var(--mut)}
+.pr.pick.empty .who{grid-column:3/-1}
 .none{padding:18px 4px;color:var(--mut);font-size:14px}
 
 /* ---- the foot -------------------------------------------------------------- */
@@ -229,4 +230,101 @@ img{display:block}
  .nm{font-size:14px}
  .meta{font-size:11px;gap:5px}
  .tnm{font-size:17px}
+}
+
+/* ---- the phone: head to head ------------------------------------------------ */
+/* Score on top, then one line per slot, yours on the left and theirs on the
+   right, mirrored about the slot name the way Sleeper draws a matchup. The
+   strip card's row has to be allowed to shrink, or a long team name pushes the
+   score out of the card. */
+.mc{grid-template-columns:minmax(0,1fr)}
+.mr{min-width:0}
+.mr span{flex:1}
+@media(max-width:640px){
+ :root{--pad:12px}
+ body{padding-bottom:env(safe-area-inset-bottom)}
+ .mast{padding:10px var(--pad);gap:9px;
+  padding-top:max(10px,env(safe-area-inset-top))}
+ .rf{padding:7px 10px}
+ .ms{grid-auto-columns:176px;padding:10px 0 2px;gap:6px;
+  margin:0 calc(-1*var(--pad));padding-left:var(--pad);padding-right:var(--pad);
+  scroll-padding:0 var(--pad);scroll-snap-type:x proximity}
+ .mc{scroll-snap-align:start;padding:9px 11px 8px}
+ .mr{font-size:12.5px}
+ .mr em{font-size:11px}
+
+ .pv{margin-top:12px;padding:14px 14px 13px;gap:5px}
+ .pvt{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  align-items:start;gap:8px;margin-bottom:8px}
+ .pt{display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:7px;align-items:center;min-width:0}
+ .pt .av{width:28px;height:28px;grid-row:1}
+ .pt .avt{background:rgba(250,250,246,.14);color:rgba(250,250,246,.8);font-size:13px}
+ .ptn{font-size:13px;font-weight:600;letter-spacing:-.015em;color:rgba(250,250,246,.86);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .ptf{grid-column:1/-1;font-size:30px;font-weight:700;letter-spacing:-.04em;line-height:1;
+  margin-top:8px;font-variant-numeric:tabular-nums}
+ .pta{grid-column:1/-1;font-size:11.5px;color:rgba(250,250,246,.58);margin-top:3px;
+  font-variant-numeric:tabular-nums}
+ .pt.r{grid-template-columns:minmax(0,1fr) 28px;text-align:right}
+ .pt.r .av{grid-column:2}
+ .pt.r .ptn{grid-column:1;grid-row:1}
+ .pm{display:grid;justify-items:center;align-content:start;padding-top:2px;min-width:64px}
+ .pm b{font-size:24px;font-weight:700;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+ .pm i{font-style:normal;font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+  color:rgba(250,250,246,.58);margin-top:3px}
+ .pbar{width:56px;height:3px;border-radius:2px;background:rgba(250,250,246,.2);margin-top:8px;overflow:hidden}
+ .pbar span{display:block;height:100%;background:var(--hl);border-radius:2px}
+ .pv .vh{font-size:16px}
+ .pv .vs2{font-size:13px}
+
+ /* the slim bar that stays when the score card has scrolled away */
+ .hhh{position:sticky;top:var(--mh,49px);z-index:10;display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto auto minmax(0,1fr);align-items:baseline;gap:8px;
+  margin:10px calc(-1*var(--pad)) 6px;padding:8px var(--pad);
+  background:rgba(250,250,246,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--hr);font-size:12px;color:var(--mut)}
+ .hhh span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+ .hhh span:last-child{text-align:right}
+ .hhh b{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+ .hhh i{font-style:normal;font-family:var(--cond);font-size:10.5px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--fnt)}
+
+ .hh{display:grid;gap:4px}
+ .hr{display:grid;grid-template-columns:minmax(0,1fr) 26px minmax(0,1fr);align-items:stretch;gap:3px}
+ .hsl{align-self:center;text-align:center;font-family:var(--cond);font-size:10.5px;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--fnt)}
+ .hx{display:grid;grid-template-columns:24px minmax(0,1fr) 46px;align-items:center;gap:5px;
+  min-height:50px;padding:0 3px 0 5px;border-radius:9px;background:var(--card);box-shadow:var(--cardsh);min-width:0}
+ .hx.r{grid-template-columns:46px minmax(0,1fr) 24px;padding:0 5px 0 3px;text-align:right}
+ .hx.final,.hx.bye,.hx.empty{background:rgba(255,253,247,.6);box-shadow:0 0 0 1px var(--hr) inset}
+ .hx.bye,.hx.empty{opacity:.62}
+ .hx.live{box-shadow:var(--cardsh),0 0 0 1.5px rgba(29,143,78,.35) inset}
+ .hx.edited{background:#FFF9D9}
+ .hx .hs{width:24px;height:24px}
+ .hx .hs.def{padding:2px}
+ .hx .who{cursor:pointer;-webkit-tap-highlight-color:transparent;padding:6px 0}
+ .hx .nm{font-size:12.5px;letter-spacing:-.025em}
+ .hx .meta{gap:4px;font-size:10.5px}
+ .hx.r .meta{justify-content:flex-end}
+ .hx .meta b{font-family:var(--cond);font-weight:700;letter-spacing:.04em;font-size:10.5px}
+ .when{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fnt)}
+ .when.live{color:var(--live);font-weight:600}
+ .when.final{color:var(--mut)}
+ /* 16px or iOS zooms the page when the field takes focus */
+ .hx .fin{font-size:16px}
+ .hx .fin.in{height:34px;padding:0 2px;text-align:center;letter-spacing:-.035em}
+ .hx span.fin{padding:0 2px;font-size:15px}
+ .hx.r span.fin{text-align:left}
+ .hx:not(.r) span.fin{text-align:right}
+
+ .pv~.bn{margin-top:14px}
+ .pv~.bn+.bn{margin-top:2px}
+ .ft{margin-top:20px;padding-bottom:12px}
+ .ft .hint{flex-basis:100%}
+ .shx{padding-bottom:max(28px,calc(env(safe-area-inset-bottom) + 16px))}
+}
+@media(max-width:360px){
+ .hx{grid-template-columns:minmax(0,1fr) 48px;gap:5px;padding-left:8px}
+ .hx.r{grid-template-columns:48px minmax(0,1fr);padding-right:8px}
+ .hx .hs{display:none}
 }

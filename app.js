@@ -96,7 +96,7 @@ function shape({season,week,league,users,rosters,matchups,proj,sched,board}){
  for(const p of proj){const pl=p.player||{};const team=pl.team||p.team||null;
   players[p.player_id]={id:p.player_id,
    name:pl.position==='DEF'?(pl.last_name||team):`${pl.first_name||''} ${pl.last_name||''}`.trim(),
-   short:pl.position==='DEF'?(pl.last_name||team):`${(pl.first_name||'')[0]||''}. ${pl.last_name||''}`.trim(),
+   short:pl.position==='DEF'?(pl.last_name||team):`${(pl.first_name||'')[0]||''}. ${(pl.last_name||'').replace(/\s+(Jr\.?|Sr\.?|II|III|IV|V)$/,'')}`.trim(),
    pos:pl.position||'—',team,injury:pl.injury_status||null,
    proj:score(p.stats||{}),game:team?game[team]||null:null}}
  const userBy={};for(const u of users)userBy[u.user_id]=u;
@@ -130,7 +130,7 @@ const touched=()=>Object.keys(S.proj).length>0||Object.keys(S.lineup).length>0;
 function line(tid,pid){
  const t=W.teams[tid],p=W.players[pid];
  const actual=+(t.actual[pid]||0);
- if(!p)return {pid,p:null,actual,proj:0,final:actual,status:'empty',fixed:true};
+ if(!p)return {pid,p:null,actual,proj:0,base:actual,final:actual,left:0,sd:0,f:0,status:'empty',fixed:true,edited:false};
  const g=p.game;
  const status=!g?'bye':g.status==='complete'?'final':g.status==='in_game'?'live':'pre';
  const fixed=status==='final'||status==='bye';
@@ -222,20 +222,24 @@ ${avatar(t)}
 <span class="tot"><b class="tf">${fmt(T.final)}</b><span class="ta">${fmt(T.actual)} so far</span></span>
 </header>
 <div class="rows">${L.map((l,i)=>row(tid,l,i,W.slots[i])).join('')}</div>
-<details class="bn"><summary>Bench <span class="bnc">${bench(tid).length}</span></summary>
-<div class="rows bnr">${bench(tid).map(l=>`<div class="pr ${l.status} b" data-bench="${tid}|${l.pid}">
+${benchBlock(tid,'Bench')}
+</section>`}
+
+function benchBlock(tid,label){
+ const B=bench(tid);
+ return `<details class="bn"><summary>${esc(label)} <span class="bnc">${B.length}</span></summary>
+<div class="rows bnr">${B.map(l=>`<div class="pr ${l.status} b" data-bench="${tid}|${l.pid}">
 <span class="sl">${l.p?esc(l.p.pos):'—'}</span>
-${l.p?`<img class="hs${l.p.pos==='DEF'?' def':''}" src="${shot(l.p)}" alt="" loading="lazy">`:''}
+${l.p?`<img class="hs${l.p.pos==='DEF'?' def':''}" src="${shot(l.p)}" alt="" loading="lazy">`:'<span class="hs none"></span>'}
 <span class="who"><span class="nm">${l.p?esc(l.p.name):'—'}</span><span class="meta">${l.p?`<b>${esc(l.p.pos)}</b> ${esc(l.p.team||'')}`:''} ${chip(l)}</span></span>
 <span class="act">${l.status==='pre'||l.status==='bye'?'<i>–</i>':fmt(l.actual)}</span>
 <span class="fin">${fmt(l.final)}</span>
 <button class="sw" type="button" data-start="${tid}|${l.pid}" aria-label="Start ${esc(l.p?l.p.name:'')}">Start</button></div>`).join('')}</div>
-</details>
-</section>`}
+</details>`}
 
 /* the sentence between the two columns: who is ahead, by how much, and what
    the players still to play have to do about it */
-function verdict(a,b){
+function words(a,b){
  const A=totals(a),B=totals(b),ta=W.teams[a],tb=W.teams[b];
  const me=a===W.me,mine=me?'You':ta.name,are=me?'’re':' is';
  const d=A.final-B.final;
@@ -256,8 +260,54 @@ function verdict(a,b){
     ?`${esc(mine)} need${me?'':'s'} <b>${fmt(need)}</b> more from ${esc(names)} — set to ${fmt(have)}.`
     :`${esc(mine)} ${me?'are':'is'} already past ${esc(tb.name)}’s projected ${fmt(B.final)}, with ${esc(names)} still to play.`
    :`${esc(mine)} ${me?'are':'is'} done at ${fmt(A.actual)}; ${esc(tb.name)} needs ${fmt(Math.max(0,A.actual-B.actual))} more from ${B.left.length} player${B.left.length===1?'':'s'}.`}
- return `<div class="vd ${d>0?'up':d<0?'down':''}">${big}<p class="vh">${head}</p><p class="vs2">${sub}</p>
-<p class="vn"><span>${fmt(A.actual)}</span><i>so far</i><span>${fmt(B.actual)}</span></p></div>`}
+ return {A,B,P,big,head,sub,tone:d>0?'up':d<0?'down':'',done:!big}}
+function verdict(a,b){
+ const v=words(a,b);
+ return `<div class="vd ${v.tone}">${v.big}<p class="vh">${v.head}</p><p class="vs2">${v.sub}</p>
+<p class="vn"><span>${fmt(v.A.actual)}</span><i>so far</i><span>${fmt(v.B.actual)}</span></p></div>`}
+
+/* ---- the phone ----------------------------------------------------------- */
+/* On a phone the two columns cannot sit side by side as rows of six things,
+   and stacking them puts the opponent thirteen rows away from you and the win
+   chance between the two. So a phone gets the matchup the way Sleeper draws
+   it: the score on top, then one line per slot with your man on the left,
+   theirs on the right, and the slot between them. Everything that can be
+   edited on the wide page can be edited here — the number, and the name, which
+   opens the swap. */
+const PHONE=matchMedia('(max-width:640px)');
+function when(l){
+ const g=l.p&&l.p.game;
+ if(l.status==='final')return 'Final';
+ if(l.status==='bye')return 'Bye';
+ if(l.status==='empty'||!g)return '';
+ if(l.status==='live')return (g.clock||'Live')+(l.actual?` · ${fmt(l.actual)}`:'');
+ const k=g.kick?new Date(g.kick):null;
+ return k?`${day(g.date)} ${k.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}).replace(':00','').replace(/\s?([AP])M$/i,(m,x)=>x.toLowerCase())}`:day(g.date)}
+function half(tid,l,i,right){
+ const p=l.p;
+ const inj=p&&p.injury?`<span class="inj">${esc(p.injury==='Questionable'?'Q':p.injury==='Doubtful'?'D':p.injury)}</span>`:'';
+ const num=l.fixed
+  ?`<span class="fin">${p?fmt(l.final):'–'}</span>`
+  :`<input class="fin in${l.edited?' ed':''}" type="number" inputmode="decimal" step="0.1" min="0"
+     value="${fmt(l.final)}" data-proj="${tid}|${l.pid}" aria-label="Projected points for ${esc(p?p.name:'empty slot')}">`;
+ const pic=p?`<img class="hs${p.pos==='DEF'?' def':''}" src="${shot(p)}" alt="" loading="lazy">`:'<span class="hs none"></span>';
+ const who=`<span class="who" data-tap="${tid}|${i}" role="button" tabindex="0" aria-label="Swap ${esc(p?p.name:'empty slot')}">
+<span class="nm">${p?esc(p.short):'Empty'}</span><span class="meta"><b>${p?esc(p.pos):''}</b><span class="when ${l.status}">${esc(when(l))}</span>${inj}</span></span>`;
+ return `<div class="hx${right?' r':''} ${l.status}${l.edited?' edited':''}">${right?num+who+pic:pic+who+num}</div>`}
+function phone(a,b){
+ const v=words(a,b),ta=W.teams[a],tb=W.teams[b];
+ const LA=lineup(a),LB=lineup(b);
+ const team=(t,T,right)=>`<span class="pt${right?' r':''}">${avatar(t)}
+<span class="ptn">${esc(t.name)}</span><b class="ptf">${fmt(T.final)}</b><span class="pta">${fmt(T.actual)} so far</span></span>`;
+ const mid=v.done?'<span class="pm"><i>Final</i></span>'
+  :`<span class="pm"><b>${pct(v.P)}%</b><i>to win</i><span class="pbar"><span style="width:${pct(v.P)}%"></span></span></span>`;
+ return `<section class="pv vd ${v.tone}">
+<div class="pvt">${team(ta,v.A,false)}${mid}${team(tb,v.B,true)}</div>
+<p class="vh">${v.head}</p><p class="vs2">${v.sub}</p></section>
+<div class="hhh" aria-hidden="true"><span>${esc(ta.name)}</span><b>${fmt(v.A.final)}</b><i>${v.done?'Final':pct(v.P)+'%'}</i><b>${fmt(v.B.final)}</b><span>${esc(tb.name)}</span></div>
+<div class="hh">${W.slots.map((s,i)=>s==='BN'?'':`<div class="hr">${half(a,LA[i]||line(a,'0'),i,false)}<span class="hsl">${esc(SLOTNAME[s]||s)}</span>${half(b,LB[i]||line(b,'0'),i,true)}</div>`).join('')}</div>
+${benchBlock(a,a===W.me?'Your bench':ta.name+' bench')}
+${benchBlock(b,b===W.me?'Your bench':tb.name+' bench')}`}
 
 function strip(){
  const ids=Object.keys(W.pairs).sort((x,y)=>(W.pairs[x].includes(W.me)?-1:0)-(W.pairs[y].includes(W.me)?-1:0)||x-y);
@@ -278,11 +328,11 @@ function render(){
  if(b===W.me)[a,b]=[b,a];
  $('#mw').textContent=`Week ${W.week}`;
  root.innerHTML=`${strip()}
-<div class="mu">
+${PHONE.matches?phone(a,b):`<div class="mu">
 ${side(a,a===W.me,b)}
 ${verdict(a,b)}
 ${side(b,b===W.me,a)}
-</div>
+</div>`}
 <footer class="ft">
 <span class="upd">Updated ${UPDATED.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}${anyLive()?' · refreshing every minute while games are on':''}</span>
 ${touched()?'<button class="rs" id="reset" type="button">Reset what-ifs</button>':'<span class="hint">Edit any projection, or swap in a bench player, to ask what it would take.</span>'}
@@ -393,6 +443,10 @@ document.addEventListener('visibilitychange',()=>{
 /* ---- boot --------------------------------------------------------------- */
 async function boot(){
  $('#refresh').onclick=refresh;
+ PHONE.addEventListener('change',()=>{if(W)render()});
+ /* the slim score bar sticks just under the masthead, whose height moves with
+    the notch */
+ new ResizeObserver(([e])=>document.documentElement.style.setProperty('--mh',e.target.offsetHeight+'px')).observe($('.mast'));
  const h=location.hash.match(/^#m(\d+)$/);if(h)VIEW.m=h[1];
  try{await load(true);render();schedule()}
  catch(e){console.error(e);$('#root').innerHTML=`<div class="boot"><p class="bootl">Couldn’t reach Sleeper.</p><p class="boots">${esc(e.message)}</p></div>`}}
